@@ -5,66 +5,45 @@ const hbs = require('express-handlebars');
 
 //import servera
 const passport = require('passport');
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const session = require('express-session');
+
+const passportConfig = require('./config/passport');
+const authRoutes = require('./routes/auth.routes');
+const userRoutes = require('./routes/user.routes');
 
 const app = express();
 
 app.engine('hbs', hbs({ extname: 'hbs', layoutsDir: './layouts', defaultLayout: 'main' }));
 app.set('view engine', '.hbs');
 
+//init session mechanizm
 app.use(session({ secret: 'anything' }));
+
+// init passport
 app.use(passport.initialize());
 app.use(passport.session());
 
-// serialize user when saving to session
-passport.serializeUser((user, serialize) => {
-  serialize(null, user);
-});
-
-// deserialize user when reading from session
-passport.deserializeUser((obj, deserialize) => {
-  deserialize(null, obj);
-});
-
-passport.use(
-  new GoogleStrategy(
-    {
-      clientID: '172991624321-3rol0uuiq2u7plshft0m3j5k21rtkvaa.apps.googleusercontent.com',
-      clientSecret: 'QLdJma6eu1rEjQkcRWysBDeQ',
-      callbackURL: 'http://localhost:8000/auth/google/callback',
-    },
-    (accessToken, refreshToken, profile, done) => {
-      done(null, profile);
-    }
-  )
-);
-
-app.get('/auth/google', passport.authenticate('google', { scope: ['email', 'profile'] }));
+app.get('/auth/google', passportConfig.authenticate('google', { scope: ['email', 'profile'] }));
 
 app.get(
   '/auth/google/callback',
-  passport.authenticate('google', { failureRedirect: '/user/no-permission' }),
+  passportConfig.authenticate('google', { failureRedirect: '/user/no-permission' }),
   (req, res) => {
     res.redirect('/user/logged');
   }
 );
 
+// Standard Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, '/public')));
+// import routes
+app.use('/auth', require('./routes/auth.routes'));
+app.use('/user', require('./routes/user.routes'));
 
 app.get('/', (req, res) => {
   res.render('index');
-});
-
-app.get('/user/logged', (req, res) => {
-  res.render('logged');
-});
-
-app.get('/user/no-permission', (req, res) => {
-  res.render('noPermission');
 });
 
 app.use('/', (req, res) => {
